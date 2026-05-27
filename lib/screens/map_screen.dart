@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/firestore_service.dart';
 import '../core/theme.dart';
 import '../core/app_state.dart';
 
@@ -16,7 +16,9 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
-  List<Place> _filteredPlaces = MockData.places;
+  List<Place> _allPlaces = [];
+  List<Place> _filteredPlaces = [];
+  bool _isLoadingPlaces = true;
   final TextEditingController _searchController = TextEditingController();
 
   // IIUM Gombak Campus Approximate Center
@@ -26,9 +28,9 @@ class _MapScreenState extends State<MapScreen> {
   void _onSearch(String query) {
     setState(() {
       if (query.isEmpty) {
-        _filteredPlaces = MockData.places;
+        _filteredPlaces = _allPlaces;
       } else {
-        _filteredPlaces = MockData.places.where((place) {
+        _filteredPlaces = _allPlaces.where((place) {
           final lowerQuery = query.toLowerCase();
           return place.name.toLowerCase().contains(lowerQuery) ||
                  place.description.toLowerCase().contains(lowerQuery) ||
@@ -43,6 +45,8 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchPlaces();
+    
     // Get actual user location
     Future.delayed(const Duration(milliseconds: 500), () {
       appState.getUserRealLocation();
@@ -67,6 +71,26 @@ class _MapScreenState extends State<MapScreen> {
     appState.removeListener(_appStateListener);
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchPlaces() async {
+    try {
+      final places = await FirestoreService().getPlaces();
+      if (mounted) {
+        setState(() {
+          _allPlaces = places;
+          _filteredPlaces = places;
+          _isLoadingPlaces = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingPlaces = false;
+        });
+      }
+      debugPrint("Error fetching places: $e");
+    }
   }
 
   @override
@@ -142,6 +166,13 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               MarkerLayer(
                 markers: [
+                  if (_isLoadingPlaces)
+                    Marker(
+                      point: _center,
+                      width: 40.0,
+                      height: 40.0,
+                      child: const CircularProgressIndicator(),
+                    ),
                   ..._filteredPlaces.map((place) {
                     return Marker(
                       point: LatLng(place.lat, place.lng),

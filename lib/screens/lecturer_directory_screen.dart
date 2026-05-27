@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/firestore_service.dart';
 import '../core/theme.dart';
 
 class LecturerDirectoryScreen extends StatefulWidget {
@@ -13,10 +13,37 @@ class LecturerDirectoryScreen extends StatefulWidget {
 
 class _LecturerDirectoryScreenState extends State<LecturerDirectoryScreen> {
   String _searchQuery = '';
+  List<Lecturer> _allLecturers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLecturers();
+  }
+
+  Future<void> _fetchLecturers() async {
+    try {
+      final lecturers = await FirestoreService().getLecturers();
+      if (mounted) {
+        setState(() {
+          _allLecturers = lecturers;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      debugPrint('Error fetching lecturers: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredLecturers = MockData.lecturers.where((l) {
+    final filteredLecturers = _allLecturers.where((l) {
       final query = _searchQuery.toLowerCase();
       return l.name.toLowerCase().contains(query) || 
              l.department.toLowerCase().contains(query) ||
@@ -50,7 +77,9 @@ class _LecturerDirectoryScreenState extends State<LecturerDirectoryScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: filteredLecturers.length,
               itemBuilder: (context, index) {

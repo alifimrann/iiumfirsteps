@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/firestore_service.dart';
 import '../core/theme.dart';
 
 class BusScheduleScreen extends StatefulWidget {
@@ -15,16 +15,40 @@ class BusScheduleScreen extends StatefulWidget {
 class _BusScheduleScreenState extends State<BusScheduleScreen> {
   late Timer _timer;
   int _simulationTick = 0;
+  List<BusScheduleEntry> _schedules = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _fetchSchedules();
     // Simulate live updates every 5 seconds
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      setState(() {
-        _simulationTick++;
-      });
+      if (mounted) {
+        setState(() {
+          _simulationTick++;
+        });
+      }
     });
+  }
+
+  Future<void> _fetchSchedules() async {
+    try {
+      final schedules = await FirestoreService().getBusSchedules();
+      if (mounted) {
+        setState(() {
+          _schedules = schedules;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      debugPrint("Error fetching schedules: $e");
+    }
   }
 
   @override
@@ -98,7 +122,19 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                       ),
                     ],
                   ),
-                  ...MockData.busSchedules.map((entry) {
+                  if (_isLoading)
+                    const TableRow(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        SizedBox(),
+                        SizedBox(),
+                      ],
+                    )
+                  else
+                  ..._schedules.map((entry) {
                     return TableRow(
                       children: [
                         Padding(

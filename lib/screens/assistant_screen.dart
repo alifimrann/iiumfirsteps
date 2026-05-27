@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../core/theme.dart';
-import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../services/firestore_service.dart';
 import '../core/app_state.dart';
 
 class AssistantScreen extends StatefulWidget {
@@ -18,9 +18,33 @@ class _AssistantScreenState extends State<AssistantScreen> {
   final List<Map<String, dynamic>> _messages = [
     {
       'sender': 'assistant',
-      'text': 'Hello! I am your IIUM campus guifde. Ask me anything'
+      'text': 'Hello! I am your IIUM campus guide. Ask me anything'
     }
   ];
+
+  List<Lecturer> _allLecturers = [];
+  List<Place> _allPlaces = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final lecturers = await FirestoreService().getLecturers();
+      final places = await FirestoreService().getPlaces();
+      if (mounted) {
+        setState(() {
+          _allLecturers = lecturers;
+          _allPlaces = places;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching assistant data: $e");
+    }
+  }
 
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
@@ -40,7 +64,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       // =========================
       // 👨‍🏫 LECTURER SEARCH
       // =========================
-      final foundLecturers = MockData.lecturers.where((lec) {
+      final foundLecturers = _allLecturers.where((lec) {
         final name = lec.name.toLowerCase();
         final queryWords = lower.split(RegExp(r'\W+')).where((w) => w.length > 2).toList();
         final stopWords = ['who', 'is', 'where', 'contact', 'dr', 'prof', 'teaches', 'teach', 'subject', 'course', 'for'];
@@ -85,7 +109,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       // =========================
       // 📍 CAMPUS PLACE SEARCH
       // =========================
-      final foundPlaces = MockData.places.where((place) {
+      final foundPlaces = _allPlaces.where((place) {
         final name = place.name.toLowerCase();
         
         final RegExp abbrevRegex = RegExp(r'\(([^)]+)\)');
